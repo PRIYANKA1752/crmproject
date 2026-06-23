@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 function Login({ setToken }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -21,6 +24,9 @@ function Login({ setToken }) {
       setToken(res.data.token);
 
       alert("Login successful");
+
+      // Redirect to Dashboard
+      navigate("/");
     } catch (error) {
       alert("Invalid login");
     }
