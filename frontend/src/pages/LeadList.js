@@ -54,26 +54,27 @@ function LeadList({ leads }) {
   // -------------------------
   // CONVERT TO CUSTOMER
   // -------------------------
-  const convertToCustomer = async (id) => {
-    try {
-      await axios.post(
-  `https://crmproject-1.onrender.com/api/customers/convert/${id}`,
-  {},
-);
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+  // -------------------------
+// CONVERT TO CUSTOMER
+// -------------------------
+const convertToCustomer = async (id) => {
+  try {
+    await axios.post(
+      `https://crmproject-1.onrender.com/api/customers/convert/${id}`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-      alert("Lead converted to Customer");
-    } catch (err) {
-      console.log(err);
-      alert("Conversion failed");
-    }
-  };
-
+    alert("Lead converted to Customer");
+  } catch (err) {
+    console.log(err);
+    alert("Conversion failed");
+  }
+};
   return (
     <div>
 
