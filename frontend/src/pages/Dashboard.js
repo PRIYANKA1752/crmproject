@@ -92,22 +92,6 @@ useEffect(() => {
   // ------------------------
   // Chart Data
   // ------------------------
-  const pieData = [
-    { name: "New", value: stats.newLeads },
-    { name: "Contacted", value: stats.contacted },
-    { name: "Qualified", value: stats.qualified },
-    { name: "Won", value: stats.won },
-    { name: "Lost", value: stats.lost },
-  ];
-
-  const barData = [
-    { stage: "New", value: stats.newLeads },
-    { stage: "Contacted", value: stats.contacted },
-    { stage: "Qualified", value: stats.qualified },
-    { stage: "Won", value: stats.won },
-    { stage: "Lost", value: stats.lost },
-  ];
-
   const COLORS = [
     "#0088FE",
     "#00C49F",
