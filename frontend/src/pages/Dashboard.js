@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient";
+import API_URL from "../config";
 import LeadList from "./LeadList";
 import AddLead from "../components/AddLead";
 import Customers from "./Customers";
@@ -38,61 +38,44 @@ function Dashboard() {
   // Fetch Dashboard Stats directly from Supabase
   // ------------------------
   const fetchStats = async () => {
-    try {
-      const { data: leadsData, error } = await supabase
-        .from("leads")
-        .select("stage");
+  try {
+    const response = await fetch(`${API_URL}/leads/dashboard/stats`);
 
-      if (error) throw error;
+    const data = await response.json();
 
-      const normalize = (s) => (s || "").toLowerCase();
-      const list = leadsData || [];
-
-      setStats({
-        totalLeads: list.length,
-        newLeads: list.filter(
-          (l) => normalize(l.stage) === "new"
-        ).length,
-        contacted: list.filter(
-          (l) => normalize(l.stage) === "contacted"
-        ).length,
-        qualified: list.filter(
-          (l) => normalize(l.stage) === "qualified"
-        ).length,
-        won: list.filter(
-          (l) => normalize(l.stage) === "won"
-        ).length,
-        lost: list.filter(
-          (l) => normalize(l.stage) === "lost"
-        ).length,
-      });
-    } catch (err) {
-      console.log("Error fetching stats:", err);
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to fetch statistics");
     }
-  };
 
-  // ------------------------
-  // Fetch Leads directly from Supabase
-  // ------------------------
+    setStats({
+      totalLeads: data.totalLeads || 0,
+      newLeads: data.newLeads || 0,
+      contacted: data.contacted || 0,
+      qualified: data.qualified || 0,
+      won: data.won || 0,
+      lost: data.lost || 0,
+    });
+  } catch (err) {
+    console.log("Error fetching stats:", err);
+  }
+};
+
+  // ------------------------fetch leads
   const fetchLeads = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .order("created_at", { ascending: false });
+  try {
+    const response = await fetch(`${API_URL}/leads`);
 
-      if (error) throw error;
+    const data = await response.json();
 
-      const formatted = (data || []).map((item) => ({
-        ...item,
-        _id: item.id,
-      }));
-
-      setLeads(formatted);
-    } catch (err) {
-      console.log("Error fetching leads:", err);
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to fetch leads");
     }
-  };
+
+    setLeads(data || []);
+  } catch (err) {
+    console.log("Error fetching leads:", err);
+  }
+};
 
   useEffect(() => {
     fetchLeads();

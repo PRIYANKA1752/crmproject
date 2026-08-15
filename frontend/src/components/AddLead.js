@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient";
+import API_URL from "../config";
 
 function AddLead({
   selectedLead,
   setSelectedLead,
   fetchLeads,
   fetchStats,
-  onClose
+  onClose,
 }) {
   const [lead, setLead] = useState({
     name: "",
@@ -18,9 +18,7 @@ function AddLead({
 
   const [loading, setLoading] = useState(false);
 
-  // -------------------------
-  // PREFILL WHEN EDITING
-  // -------------------------
+  // Prefill when editing
   useEffect(() => {
     if (selectedLead) {
       setLead({
@@ -33,61 +31,64 @@ function AddLead({
     }
   }, [selectedLead]);
 
-  // -------------------------
-  // HANDLE CHANGE
-  // -------------------------
+  // Handle input changes
   const handleChange = (e) => {
-    setLead({ ...lead, [e.target.name]: e.target.value });
+    setLead({
+      ...lead,
+      [e.target.name]: e.target.value,
+    });
   };
 
-  // -------------------------
-  // SUBMIT (ADD + UPDATE via Supabase)
-  // -------------------------
+  // Add / Update Lead using MongoDB backend
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      if (selectedLead) {
-        // UPDATE LEAD IN SUPABASE
-        const { error } = await supabase
-          .from("leads")
-          .update({
-            name: lead.name,
-            email: lead.email,
-            phone: lead.phone || "0000000000",
-            company: lead.company,
-            stage: lead.stage,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", selectedLead._id);
+      const url = selectedLead
+        ? `${API_URL}/leads/${selectedLead._id}`
+        : `${API_URL}/leads`;
 
-        if (error) throw error;
+      const method = selectedLead ? "PUT" : "POST";
 
-        alert("Lead Updated Successfully!");
-        if (setSelectedLead) setSelectedLead(null);
-      } else {
-        // CREATE LEAD IN SUPABASE
-        const { error } = await supabase.from("leads").insert([
-          {
-            name: lead.name,
-            email: lead.email,
-            phone: lead.phone || "0000000000",
-            company: lead.company,
-            stage: lead.stage || "New",
-          },
-        ]);
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone || "0000000000",
+          company: lead.company,
+          stage: lead.stage || "New",
+        }),
+      });
 
-        if (error) throw error;
+      const data = await response.json();
 
-        alert("Lead Added Successfully!");
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save lead");
       }
 
-      // Refresh dashboard & stats
-      if (fetchLeads) fetchLeads();
-      if (fetchStats) fetchStats();
+      alert(
+        selectedLead
+          ? "Lead Updated Successfully!"
+          : "Lead Added Successfully!"
+      );
 
-      // Reset form
+      if (setSelectedLead) {
+        setSelectedLead(null);
+      }
+
+      if (fetchLeads) {
+        fetchLeads();
+      }
+
+      if (fetchStats) {
+        fetchStats();
+      }
+
       setLead({
         name: "",
         email: "",
@@ -96,11 +97,12 @@ function AddLead({
         stage: "New",
       });
 
-      // Close modal if used
-      onClose?.();
+      if (onClose) {
+        onClose();
+      }
     } catch (err) {
-      console.log("Error saving lead:", err);
-      alert(err.message || "Something went wrong saving to Supabase");
+      console.error("Error saving lead:", err);
+      alert(err.message || "Failed to save lead");
     } finally {
       setLoading(false);
     }
@@ -112,13 +114,19 @@ function AddLead({
         <h4 className="fw-bold mb-0 fs-5">
           {selectedLead ? "Edit Lead Details" : "Add New Lead"}
         </h4>
+
         {(selectedLead || onClose) && (
           <button
             type="button"
             className="btn-close"
             onClick={() => {
-              if (setSelectedLead) setSelectedLead(null);
-              onClose?.();
+              if (setSelectedLead) {
+                setSelectedLead(null);
+              }
+
+              if (onClose) {
+                onClose();
+              }
             }}
           ></button>
         )}
@@ -126,7 +134,10 @@ function AddLead({
 
       <form onSubmit={handleSubmit}>
         <div className="mb-2">
-          <label className="form-label small fw-bold text-secondary">Full Name *</label>
+          <label className="form-label small fw-bold text-secondary">
+            Full Name *
+          </label>
+
           <input
             className="form-control"
             name="name"
@@ -139,7 +150,10 @@ function AddLead({
 
         <div className="row g-2 mb-2">
           <div className="col-12 col-md-6">
-            <label className="form-label small fw-bold text-secondary">Email Address *</label>
+            <label className="form-label small fw-bold text-secondary">
+              Email Address *
+            </label>
+
             <input
               type="email"
               className="form-control"
@@ -150,8 +164,12 @@ function AddLead({
               required
             />
           </div>
+
           <div className="col-12 col-md-6">
-            <label className="form-label small fw-bold text-secondary">Phone Number</label>
+            <label className="form-label small fw-bold text-secondary">
+              Phone Number
+            </label>
+
             <input
               type="text"
               className="form-control"
@@ -165,7 +183,10 @@ function AddLead({
 
         <div className="row g-2 mb-3">
           <div className="col-12 col-md-6">
-            <label className="form-label small fw-bold text-secondary">Company Name</label>
+            <label className="form-label small fw-bold text-secondary">
+              Company Name
+            </label>
+
             <input
               className="form-control"
               name="company"
@@ -174,8 +195,12 @@ function AddLead({
               onChange={handleChange}
             />
           </div>
+
           <div className="col-12 col-md-6">
-            <label className="form-label small fw-bold text-secondary">Lead Stage</label>
+            <label className="form-label small fw-bold text-secondary">
+              Lead Stage
+            </label>
+
             <select
               className="form-select"
               name="stage"
@@ -191,8 +216,18 @@ function AddLead({
           </div>
         </div>
 
-        <button className="btn btn-primary w-100 py-2 fw-bold shadow-sm" type="submit" disabled={loading}>
-          {loading ? "Saving to Supabase..." : selectedLead ? "Update Lead" : "Add Lead to Database"}
+        <button
+          className="btn btn-primary w-100 py-2 fw-bold shadow-sm"
+          type="submit"
+          disabled={loading}
+        >
+          {loading
+            ? selectedLead
+              ? "Updating..."
+              : "Adding..."
+            : selectedLead
+            ? "Update Lead"
+            : "Add Lead"}
         </button>
       </form>
     </div>
