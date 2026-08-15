@@ -35,7 +35,7 @@ function Dashboard() {
   const [showAddLead, setShowAddLead] = useState(false);
 
   // ------------------------
-  // Fetch Dashboard Stats directly from Supabase
+  // Fetch Dashboard Stats directly from backend API
   // ------------------------
   const fetchStats = async () => {
   try {
@@ -63,20 +63,22 @@ function Dashboard() {
   // ------------------------fetch leads
   const fetchLeads = async () => {
   try {
-    const response = await fetch(`${API_URL}/leads`);
+    const response = await fetch(
+      "https://crmproject-1.onrender.com/api/leads"
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch leads");
+    }
 
     const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.message || "Failed to fetch leads");
-    }
-
-    setLeads(data || []);
+    setLeads(data);
   } catch (err) {
     console.log("Error fetching leads:", err);
   }
 };
-
+  
   useEffect(() => {
     fetchLeads();
     fetchStats();

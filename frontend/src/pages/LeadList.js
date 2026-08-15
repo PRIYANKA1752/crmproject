@@ -1,15 +1,16 @@
 import React, { useState } from "react";
-import { supabase } from "../supabaseClient";
 
 function LeadList({
   leads,
   fetchLeads,
   fetchStats,
   setSelectedLead,
-  selectedLead
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [stageFilter, setStageFilter] = useState("All");
+
+  const API_URL =
+    process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
   // -------------------------
   // FILTER LOGIC
@@ -29,17 +30,27 @@ function LeadList({
   });
 
   // -------------------------
-  // DELETE LEAD (Direct Supabase)
+  // DELETE LEAD
   // -------------------------
   const deleteLead = async (id) => {
     if (!window.confirm("Delete this lead?")) return;
 
     try {
-      const { error } = await supabase.from("leads").delete().eq("id", id);
-      if (error) throw error;
+      const response = await fetch(`${API_URL}/leads/${id}`, {
+        method: "DELETE",
+      });
 
-      fetchLeads();
-      if (fetchStats) fetchStats();
+      if (!response.ok) {
+        throw new Error("Failed to delete lead");
+      }
+
+      alert("Lead deleted successfully!");
+
+      await fetchLeads();
+
+      if (fetchStats) {
+        await fetchStats();
+      }
     } catch (err) {
       console.log("Error deleting lead:", err);
       alert("Delete failed");
@@ -47,36 +58,35 @@ function LeadList({
   };
 
   // -------------------------
-  // CONVERT TO CUSTOMER (Direct Supabase)
+  // CONVERT LEAD TO CUSTOMER
   // -------------------------
-  const convertToCustomer = async (id) => {
+  const convertToCustomer = async (lead) => {
     try {
-      const { data: lead, error: leadErr } = await supabase
-        .from("leads")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (leadErr || !lead) throw new Error("Lead not found");
+      const response = await fetch(`${API_URL}/customers`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: lead.name,
+          email: lead.email,
+          company: lead.company,
+          sourceleadid: lead._id,
+        }),
+      });
 
-      const newCustomer = {
-        name: lead.name,
-        email: lead.email,
-        company: lead.company,
-        sourceleadid: lead.id,
-      };
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
 
-      const { error: custErr } = await supabase
-        .from("customers")
-        .insert([newCustomer]);
-      if (custErr) throw custErr;
+        throw new Error(
+          errorData.message || "Failed to convert lead to customer"
+        );
+      }
 
       alert("Lead converted to Customer successfully!");
-
-      fetchLeads();
-      if (fetchStats) fetchStats();
     } catch (err) {
       console.log("Error converting lead:", err);
-      alert("Conversion failed");
+      alert(err.message || "Conversion failed");
     }
   };
 
@@ -87,22 +97,31 @@ function LeadList({
     const headers = ["Name", "Email", "Company", "Stage"];
 
     const rows = filteredLeads.map((lead) => [
-      lead.name,
-      lead.email,
-      lead.company,
-      lead.stage,
+      lead.name || "",
+      lead.email || "",
+      lead.company || "",
+      lead.stage || "",
     ]);
 
     const csvContent =
       "data:text/csv;charset=utf-8," +
-      [headers, ...rows].map((e) => e.join(",")).join("\n");
+      [headers, ...rows]
+        .map((row) =>
+          row
+            .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+            .join(",")
+        )
+        .join("\n");
 
     const encodedUri = encodeURI(csvContent);
+
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", "leads_report.csv");
+
     document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -135,22 +154,28 @@ function LeadList({
         </div>
 
         <div className="col-6 col-md-4">
-          <button className="btn btn-success btn-sm w-100 shadow-sm fw-bold" onClick={exportToCSV}>
-            📁 Export CSV
+          <button
+            className="btn btn-success btn-sm w-100 shadow-sm fw-bold"
+            onClick={exportToCSV}
+          >
+            📄 Export CSV
           </button>
         </div>
       </div>
 
-      {/* RESPONSIVE TABLE CONTAINER */}
+      {/* TABLE */}
       <div className="table-responsive">
-        <table className="table table-bordered table-hover bg-white shadow-sm mb-0" style={{ minWidth: "600px" }}>
+        <table
+          className="table table-bordered table-hover bg-white shadow-sm mb-0"
+          style={{ minWidth: "600px" }}
+        >
           <thead className="table-dark">
             <tr>
               <th>Name</th>
               <th>Email</th>
               <th>Company</th>
               <th>Stage</th>
-              <th style={{ minWidth: "180px" }}>Actions</th>
+              <th style={{ minWidth: "250px" }}>Actions</th>
             </tr>
           </thead>
 
@@ -159,8 +184,11 @@ function LeadList({
               filteredLeads.map((lead) => (
                 <tr key={lead._id} className="align-middle">
                   <td className="fw-bold">{lead.name}</td>
+
                   <td>{lead.email}</td>
+
                   <td>{lead.company}</td>
+
                   <td>
                     <span
                       className={`badge ${
@@ -198,7 +226,7 @@ function LeadList({
                       {/* CONVERT */}
                       <button
                         className="btn btn-success btn-sm px-2 shadow-sm"
-                        onClick={() => convertToCustomer(lead._id)}
+                        onClick={() => convertToCustomer(lead)}
                       >
                         Convert
                       </button>
@@ -208,7 +236,10 @@ function LeadList({
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="text-center py-4 text-muted">
+                <td
+                  colSpan="5"
+                  className="text-center py-4 text-muted"
+                >
                   No leads found
                 </td>
               </tr>

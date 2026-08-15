@@ -1,4 +1,4 @@
-const supabase = require("../config/supabase");
+const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -9,12 +9,14 @@ const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Check if user already exists in Supabase
-    const { data: existingUser } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single();
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        message: "Name, email and password are required",
+      });
+    }
+
+    // Check if user already exists in MongoDB
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res.status(400).json({
@@ -25,19 +27,24 @@ const register = async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Save user in Supabase
-    const { data: user, error } = await supabase
-      .from("users")
-      .insert([{ name, email, password: hashedPassword }])
-      .select();
-
-    if (error) throw error;
+    // Create user in MongoDB
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
 
     res.status(201).json({
       message: "User registered successfully",
-      user: { ...user[0], _id: user[0].id },
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
     });
   } catch (error) {
+    console.error("Register error:", error);
+
     res.status(500).json({
       message: error.message,
     });
@@ -51,46 +58,55 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Demo login check first
-    if (email === "test@gmail.com" && password === "123456") {
-      const token = jwt.sign(
-        { email },
-        process.env.JWT_SECRET || "enterprisecrm123",
-        { expiresIn: "1d" }
-      );
-
-      return res.json({ token });
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
     }
 
-    // Check Supabase database for registered users
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single();
+    // Find user in MongoDB
+    const user = await User.findOne({ email });
 
-    if (error || !user) {
+    if (!user) {
       return res.status(401).json({
         message: "Invalid credentials",
       });
     }
 
+    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
       return res.status(401).json({
         message: "Invalid credentials",
       });
     }
 
+    // Create JWT token
     const token = jwt.sign(
-      { email: user.email, id: user.id },
+      {
+        id: user._id,
+        email: user.email,
+      },
       process.env.JWT_SECRET || "enterprisecrm123",
-      { expiresIn: "1d" }
+      {
+        expiresIn: "1d",
+      }
     );
 
-    return res.json({ token });
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
   } catch (error) {
-    return res.status(500).json({
+    console.error("Login error:", error);
+
+    res.status(500).json({
       message: error.message,
     });
   }
